@@ -1,0 +1,21 @@
+{
+  "pr_auc": 0.4215767152111239,
+  "recall": 0.7938144329896907,
+  "precision": 0.5032679738562091,
+  "f2_score": 0.711645101663586,
+  "f1_score": 0.616,
+  "total_cost": 276.0,
+  "cost_fn_ratio": 10.0,
+  "fn_cost": 200.0,
+  "fp_cost": 76.0,
+  "confusion_matrix": {
+    "tn": 56787,
+    "fp": 76,
+    "fn": 20,
+    "tp": 77
+  },
+  "specificity": 0.998663454267274,
+  "roc_auc": 0.8832983635291984,
+  "accuracy": 0.998314606741573,
+  "threshold": 1.0
+}
