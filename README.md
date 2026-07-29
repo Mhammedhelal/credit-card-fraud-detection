@@ -1,4 +1,3 @@
-
 # 💳 Credit Card Fraud Detection
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -13,6 +12,9 @@
 [![Matplotlib](https://img.shields.io/badge/matplotlib-%23ffffff.svg?style=flat&logo=plotly&logoColor=black)](https://matplotlib.org/)
 [![Seaborn](https://img.shields.io/badge/seaborn-%232E5E82.svg?style=flat)](https://seaborn.pydata.org/)
 [![SHAP](https://img.shields.io/badge/SHAP-%23FF6B6B.svg?style=flat)](https://shap.readthedocs.io/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-%23009688.svg?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Pydantic](https://img.shields.io/badge/Pydantic-%23E92063.svg?style=flat&logo=pydantic&logoColor=white)](https://docs.pydantic.dev/)
+[![Streamlit](https://img.shields.io/badge/Streamlit-%23FF4B4B.svg?style=flat&logo=streamlit&logoColor=white)](https://streamlit.io/)
 
 A machine learning project to detect fraudulent credit card transactions using anonymised PCA-transformed transaction data. The pipeline implements a full story-driven EDA, evidence-based feature engineering, stratified cross-validation, cost-aware threshold selection, and SHAP interpretability — all grounded in the analytical findings of the EDA notebook.
 
@@ -31,6 +33,7 @@ A machine learning project to detect fraudulent credit card transactions using a
 - [Full Results Table](#full-results-table)
 - [Model Comparison &amp; Decision](#model-comparison--decision)
 - [Evaluation Methodology](#evaluation-methodology)
+- [Serving — API &amp; Dashboard](#serving--api--dashboard)
 - [Repository Structure](#repository-structure)
 - [Contributing](#contributing)
 - [License](#license)
@@ -133,17 +136,17 @@ All decisions below are justified by EDA evidence. No feature was created withou
 
 ### Features Created
 
-| Feature        | Formula                          | EDA Justification                                                |
+| Feature | Formula | EDA Justification |
 | -------------- | -------------------------------- | ---------------------------------------------------------------- |
-| `log_amount` | `log1p(Amount)`                | Skewness 19.99 → 0.80; clearer class separation (§6.4)         |
-| `amount_bin` | 5-quantile bins on`log_amount` | U-shaped fraud rate across bins confirmed (§11.1)               |
-| `Hour`       | `(Time // 3600) % 24`          | Fraud has strong temporal concentration (§7.1)                  |
-| `sin_hour`   | `sin(2π × Hour / 24)`        | Circular encoding — fraud window spans midnight (§12.1)        |
-| `cos_hour`   | `cos(2π × Hour / 24)`        | Paired with sin_hour for full circular representation            |
-| `V12_amount` | `V12 × log_amount`            | r = −0.21 with fraud; V12 correlates with Amount (§11.2)       |
-| `V12_hour`   | `V12 × Hour`                  | r = −0.21 with fraud; V12 encodes time (r=0.35 with Hour)       |
-| `V7_amount`  | `V7 × log_amount`             | r = −0.09; V7 strongest Amount correlator (r=0.42), independent |
-| `V11_hour`   | `V11 × Hour`                  | r = +0.10; independent secondary temporal signal                 |
+| `log_amount` | `log1p(Amount)` | Skewness 19.99 → 0.80; clearer class separation (§6.4) |
+| `amount_bin` | 5-quantile bins on`log_amount` | U-shaped fraud rate across bins confirmed (§11.1) |
+| `Hour` | `(Time // 3600) % 24` | Fraud has strong temporal concentration (§7.1) |
+| `sin_hour` | `sin(2π × Hour / 24)` | Circular encoding — fraud window spans midnight (§12.1) |
+| `cos_hour` | `cos(2π × Hour / 24)` | Paired with sin_hour for full circular representation |
+| `V12_amount` | `V12 × log_amount` | r = −0.21 with fraud; V12 correlates with Amount (§11.2) |
+| `V12_hour` | `V12 × Hour` | r = −0.21 with fraud; V12 encodes time (r=0.35 with Hour) |
+| `V7_amount` | `V7 × log_amount` | r = −0.09; V7 strongest Amount correlator (r=0.42), independent |
+| `V11_hour` | `V11 × Hour` | r = +0.10; independent secondary temporal signal |
 
 ### Features Explicitly Dropped
 
@@ -179,7 +182,7 @@ All decisions below are justified by EDA evidence. No feature was created withou
 data/train.csv
      │
      ▼
-feature_engineering.py --mode train
+src/feature_engineering.py --mode train
      │  • Extracts Hour, log_amount, amount_bin (fit edges)
      │  • Creates sin/cos hour, V12_amount, V12_hour, V7_amount, V11_hour
      │  • Fits OrdinalEncoder on amount_bin
@@ -188,7 +191,7 @@ feature_engineering.py --mode train
 data/engineered/train_features.parquet
      │
      ▼
-training.py
+src/training.py
      │  • Stratified K-fold CV (5 or 10 folds) — reports PR-AUC per fold
      │  • Trains final model with scale_pos_weight = 559
      │  • Selects threshold via PR curve:
@@ -199,7 +202,7 @@ training.py
 models/xgboost_shallow/trained_model.pkl
      │
      ▼
-testing.py
+src/testing.py
      │  • Loads model and threshold
      │  • Computes PR-AUC (primary), Recall, Precision, F2, cost
      │  • Plots PR curve + confusion matrix
@@ -219,8 +222,8 @@ eval/xgboost_shallow_test/
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/Mhammedhelal/credit-fraud-detection.git
-cd credit-fraud-detection
+git clone https://github.com/Mhammedhelal/credit-card-fraud-detection.git
+cd credit-card-fraud-detection
 
 # 2. Create virtual environment
 python -m venv venv
@@ -430,35 +433,23 @@ python src/testing.py \
     --cost-fn-ratio 10
 ```
 
-### Step 4 — Probability Calibration (optional, improves PR-AUC)
+### Step 4 — Serve the Model (API + Dashboard)
 
 ```bash
-python3 - << 'EOF'
-import joblib, pandas as pd, os
-from sklearn.calibration import CalibratedClassifierCV
-from sklearn.metrics import average_precision_score
+pip install -r requirements-api.txt
 
-bundle  = joblib.load('models/xgboost_shallow/trained_model.pkl')
-model   = bundle['model']
+# Terminal 1 — FastAPI service
+export MODEL_PATH=models/xgboost_shallow/trained_model.pkl
+export FEATURE_ARTIFACTS_PATH=data/engineered/feature_artifacts.pkl
+uvicorn api.main:app --reload --port 8000
 
-val  = pd.read_parquet('data/engineered/val_features.parquet')
-test = pd.read_parquet('data/engineered/test_features.parquet')
-X_val,  y_val  = val.drop(columns=['Class']),  val['Class']
-X_test, y_test = test.drop(columns=['Class']), test['Class']
-
-cal = CalibratedClassifierCV(model, method='isotonic', cv='prefit')
-cal.fit(X_val, y_val)
-
-before = average_precision_score(y_test, model.predict_proba(X_test)[:, 1])
-after  = average_precision_score(y_test, cal.predict_proba(X_test)[:, 1])
-print(f"Before calibration PR-AUC: {before:.4f}")
-print(f"After  calibration PR-AUC: {after:.4f}")
-
-os.makedirs('models/xgboost_shallow_calibrated', exist_ok=True)
-joblib.dump({**bundle, 'model': cal},
-            'models/xgboost_shallow_calibrated/trained_model.pkl')
-EOF
+# Terminal 2 — Streamlit dashboard
+export MODEL_PATH=models/xgboost_shallow/trained_model.pkl
+export API_BASE_URL=http://localhost:8000
+streamlit run app/streamlit_app.py
 ```
+
+Full details — endpoints, env vars, request logging, design notes — are in [Serving — API &amp; Dashboard](#serving--api--dashboard) below.
 
 ---
 
@@ -663,6 +654,63 @@ Expected top SHAP features based on EDA correlation analysis: V4, V14, V17, V12,
 
 ---
 
+## Serving — API & Dashboard
+
+The best model (`xgboost_shallow`) is served behind a FastAPI service, with a Streamlit dashboard for interactive scoring and threshold tuning. Neither layer duplicates pipeline logic — both import directly from `src/`.
+
+```
+app/streamlit_app.py          # UI — threshold slider, cost calculator, scoring form, SHAP chart
+      │  HTTP
+      ▼
+api/main.py                   # POST /predict, POST /predict/batch, GET /health
+      │
+      ├── api/schemas.py       # Pydantic input validation (30 raw features)
+      ├── api/preprocessing.py # from src.feature_engineering import apply_feature_engineering, apply_transform
+      ├── api/model.py         # loads models/xgboost_shallow/trained_model.pkl via MODEL_PATH
+      └── api/explain.py       # per-prediction SHAP values (lazy import, fails soft)
+      │
+      ▼
+src/inference_core.py         # shared run_inference() — used by api/model.py AND src/testing.py
+```
+
+### Endpoints
+
+| Method | Path | Purpose |
+| -------- | ------------------ | ---------------------------------------------------------- |
+| `GET` | `/health` | Liveness/readiness check — model type, version, threshold |
+| `POST` | `/predict` | Score one raw transaction → prediction, probability, SHAP |
+| `POST` | `/predict/batch` | Score a list of transactions in one call |
+
+`/predict` accepts the same 30 raw columns as `data/train.csv` (`Time`, `V1`–`V28`, `Amount`) — feature engineering happens server-side via `api/preprocessing.py`, using the exact bin edges and `OrdinalEncoder` fitted during training (`feature_artifacts.pkl`), so there is no risk of train/serve skew.
+
+### Environment variables
+
+| Var                                   | Default                                       | Purpose                                                            |
+| ------------------------------------- | --------------------------------------------- | ------------------------------------------------------------------ |
+| `MODEL_PATH`                        | `models/xgboost_shallow/trained_model.pkl`  | Model bundle saved by`training.py`                               |
+| `FEATURE_ARTIFACTS_PATH`            | `data/engineered/feature_artifacts.pkl`     | Artifacts saved by`feature_engineering.py --mode train`          |
+| `PREDICTION_LOG_PATH`               | `logs/predictions.jsonl`                    | JSONL log — one line per prediction (timestamp, features, result) |
+| `API_BASE_URL` *(dashboard only)* | `http://localhost:8000`                     | Where Streamlit sends prediction requests                          |
+
+### Design notes
+
+- **Input validation is automatic.** `TransactionInput` (`api/schemas.py`) types every field; a string in a numeric column, a missing field, or a negative `Amount`/`Time` returns a `422` before it ever reaches the model.
+- **No duplicated feature logic.** `api/preprocessing.py` imports `apply_feature_engineering` and `apply_transform` straight from `src/feature_engineering.py`. If the EDA-driven feature logic changes, it changes in one place and both training and serving pick it up.
+- **`src/inference_core.py` is the shared inference core** for `training.py`, `testing.py`, and `api/model.py`. It has zero heavy dependencies (no matplotlib, no shap) so the API's cold start doesn't pay for `testing.py`'s plotting/reporting imports.
+- **SHAP is lazy and fails soft.** If `shap` isn't installed, or a non-tree model is loaded, `/predict` still returns a valid prediction — `shap_explanation` is just an empty list instead of a `500`.
+- **`/health` reports `"degraded"` rather than crashing** if the model or artifacts aren't found at boot — easier to debug in a container than a boot-loop.
+- **Threshold is adjustable per-request** (`?threshold=0.35` query param) or via the dashboard slider, which also redraws precision/recall live from the model's stored PR curve (`metadata.threshold_info.pr_curve`) and estimates daily fraud-loss vs false-alarm cost.
+
+### Run it
+
+```bash
+pip install -r requirements-api.txt
+uvicorn api.main:app --reload --port 8000          # API   → http://localhost:8000/docs
+streamlit run app/streamlit_app.py                  # UI    → http://localhost:8501
+```
+
+---
+
 ## Repository Structure
 
 ```
@@ -710,9 +758,24 @@ credit-fraud-detection/
 ├── src/
 │   ├── feature_engineering.py             Feature engineering pipeline
 │   ├── training.py                        Model training + CV + threshold selection
-│   └── testing.py                         Evaluation + PR curve + SHAP
+│   ├── testing.py                         Evaluation + PR curve + SHAP
+│   └── inference_core.py                  Shared run_inference() — used by testing.py AND api/model.py
+│
+├── api/
+│   ├── main.py                            FastAPI app — /predict, /predict/batch, /health
+│   ├── schemas.py                         Pydantic request/response models (input validation)
+│   ├── model.py                           Loads model via MODEL_PATH, runs inference
+│   ├── preprocessing.py                   Wraps src.feature_engineering — no duplicated logic
+│   └── explain.py                         Per-prediction SHAP values (lazy import)
+│
+├── app/
+│   └── streamlit_app.py                   Dashboard — threshold slider, cost calculator, scoring form
+│
+├── logs/
+│   └── predictions.jsonl                  Request log — timestamp, features, prediction, threshold
 │
 ├── requirements.txt
+├── requirements-api.txt                   fastapi, uvicorn, pydantic, streamlit, plotly, requests
 ├── README.md
 └── LICENSE
 ```
@@ -733,6 +796,9 @@ credit-fraud-detection/
 - Bayesian hyperparameter optimisation for XGBoost shallow config
 - KNN and Random Forest experimental results
 - Temporal stability analysis (performance across different 6-hour windows within the 48-hour dataset)
+- Swap `PREDICTION_LOG_PATH` JSONL logging for a real sink (message queue, DB, or logging service) before production traffic
+- Authentication/rate-limiting on the FastAPI service — currently CORS is wide open (`allow_origins=["*"]`), intended for local dev only
+- Containerize `api/` + `app/` (Dockerfile + docker-compose) for one-command local deployment
 
 ---
 

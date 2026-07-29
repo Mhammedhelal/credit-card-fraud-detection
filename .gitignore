@@ -2,3 +2,6 @@ all_results.json
 commands.sh
 data/
 models/
+.env
+Demo.mp4
+demo.gif

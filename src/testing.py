@@ -59,7 +59,7 @@ from sklearn.metrics import (
     confusion_matrix,
     accuracy_score,
 )
-
+from inference_core import run_inference
 warnings.filterwarnings("ignore")
 
 FRAUD_C  = "#C0392B"
@@ -87,18 +87,6 @@ def load_data(data_path: str) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series | N
     y  = df["Class"] if "Class" in df.columns else None
     X  = df.drop(columns=["Class"]) if y is not None else df
     return df, X, y
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# INFERENCE
-# ──────────────────────────────────────────────────────────────────────────────
-
-def run_inference(model, X: pd.DataFrame,
-                  threshold: float) -> tuple[np.ndarray, np.ndarray]:
-    """Return binary predictions and fraud probabilities."""
-    y_proba = model.predict_proba(X)[:, 1]
-    y_pred  = (y_proba >= threshold).astype(int)
-    return y_pred, y_proba
 
 
 # ──────────────────────────────────────────────────────────────────────────────
