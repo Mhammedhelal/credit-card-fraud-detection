@@ -20,6 +20,12 @@ A machine learning project to detect fraudulent credit card transactions using a
 
 ---
 
+
+https://github.com/user-attachments/assets/9c0de2ea-0546-4a18-b81b-f09d0593ad4e
+
+
+---
+
 ## Table of Contents
 
 - [Overview](#overview)
